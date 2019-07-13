@@ -1,0 +1,281 @@
+From 784a0be9d7690e323054c346fbb3704b7e95a046 Mon Sep 17 00:00:00 2001
+From: Andreas Klinger <ak@it-klinger.de>
+Date: Sun, 23 Jun 2019 09:58:00 +0200
+Subject: [PATCH] drivers/char/wetter.c: add rain impuls sensor
+
+Signed-off-by: Andreas Klinger <ak@it-klinger.de>
+---
+ drivers/char/Kconfig  |   6 ++
+ drivers/char/Makefile |   3 +
+ drivers/char/wetter.c | 230 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 239 insertions(+)
+ create mode 100644 drivers/char/wetter.c
+
+diff --git a/drivers/char/Kconfig b/drivers/char/Kconfig
+index 1df9cb8e659e..5eab37440f5c 100644
+--- a/drivers/char/Kconfig
++++ b/drivers/char/Kconfig
+@@ -7,6 +7,12 @@ menu "Character devices"
+ 
+ source "drivers/tty/Kconfig"
+ 
++config WETTER
++	tristate "/dev/rain wetter sensor"
++	default m
++	help
++	  Say Y here if you want a rain sensor delivering the number of impules
++
+ config DEVMEM
+ 	bool "/dev/mem virtual device support"
+ 	default y
+diff --git a/drivers/char/Makefile b/drivers/char/Makefile
+index b8d42b4e979b..271a32e43640 100644
+--- a/drivers/char/Makefile
++++ b/drivers/char/Makefile
+@@ -58,3 +58,6 @@ js-rtc-y = rtc.o
+ obj-$(CONFIG_XILLYBUS)		+= xillybus/
+ obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
+ obj-$(CONFIG_ADI)		+= adi.o
++
++obj-$(CONFIG_WETTER)		+= wetter.o
++
+diff --git a/drivers/char/wetter.c b/drivers/char/wetter.c
+new file mode 100644
+index 000000000000..6b5e33bb00a8
+--- /dev/null
++++ b/drivers/char/wetter.c
+@@ -0,0 +1,231 @@
++/*
++ * WETTER-CHAR: Impulse von Wetterstation zählen mit GPIOs
++ *
++ * Copyright (c) 2017 Andreas Klinger <ak@it-klinger.de>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ */
++#include <linux/fs.h>
++#include <linux/err.h>
++#include <linux/gpio/consumer.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/property.h>
++#include <linux/sched.h>
++#include <linux/interrupt.h>
++#include <linux/delay.h>
++#include <linux/cdev.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/uaccess.h>
++#include <linux/spinlock.h>
++#include <linux/device.h>
++
++static struct class	*rain_class = NULL;
++
++struct wetter_data {
++	struct device		*dev;
++	struct gpio_desc	*gpiod_impuls;
++	spinlock_t		lock;
++	int			irqnr;
++	int			count;
++	struct cdev 		cdev;
++	char			type[20];
++	struct device		*rain_device;
++};
++
++static irqreturn_t wetter_handle_irq(int irq, void *dev_id)
++{
++	struct wetter_data *data = (struct wetter_data*)dev_id;
++	unsigned long flags;
++
++	spin_lock_irqsave(&data->lock, flags);
++
++	if (irq == data->irqnr)
++		data->count++;
++
++	spin_unlock_irqrestore(&data->lock, flags);
++
++	return IRQ_HANDLED;
++}
++
++static int wetter_open(struct inode *node, struct file *file)
++{
++	struct wetter_data *data = container_of(node->i_cdev, struct wetter_data, cdev);
++
++	file->private_data = data;
++
++	return 0;
++}
++
++static ssize_t wetter_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
++{
++	struct wetter_data *data = file->private_data;
++	//int ret;
++	char val[20];
++	int len;
++	unsigned long flags;
++
++	if ((*offset) > 0)
++		return 0;
++
++	memset(val, 0, sizeof(val));
++
++	spin_lock_irqsave(&data->lock, flags);
++
++	sprintf(val, "%d\n", data->count);
++
++	spin_unlock_irqrestore(&data->lock, flags);
++	
++	len = strlen(val);
++	if ( !copy_to_user(buf, val, len) ) {
++		(*offset) += len;
++		return len;
++	}
++	else
++		return -ENOMEM;
++
++	return 0;
++}
++
++static struct file_operations wetter_fops = {
++	.owner		= THIS_MODULE,
++	.open		= wetter_open,
++	.read		= wetter_read,
++	.llseek		= default_llseek,
++};
++
++static int wetter_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct wetter_data *data;
++	int ret;
++	const char *type;
++
++	data = devm_kzalloc(dev, sizeof(struct wetter_data), GFP_KERNEL);
++	if (!data) {
++		dev_err(dev, "failed to allocate device\n");
++		return -ENOMEM;
++	}
++
++	data->dev = dev;
++
++	spin_lock_init(&data->lock);
++
++	type = of_get_property(dev->of_node, "type", NULL);
++	if (!type) {
++		dev_err(dev, "failed to get type of impuls\n");
++		return -EINVAL;
++	}
++
++	strncpy(data->type, type, sizeof(data->type) - 1);
++
++//	dev_set_name(data->dev, "%s", data->type);
++
++	data->gpiod_impuls = devm_gpiod_get(dev, "impuls", GPIOD_IN);
++	if (IS_ERR(data->gpiod_impuls)) {
++		dev_err(dev, "failed to get impuls-gpios: err=%ld\n",
++					PTR_ERR(data->gpiod_impuls));
++		return PTR_ERR(data->gpiod_impuls);
++	}
++
++	data->irqnr = gpiod_to_irq(data->gpiod_impuls);
++	if (data->irqnr < 0) {
++		dev_err(dev, "gpiod_to_irq: %d\n", data->irqnr);
++		return data->irqnr;
++	}
++
++	ret = devm_request_irq(dev, data->irqnr, wetter_handle_irq,
++			IRQF_TRIGGER_RISING,
++			pdev->name, data);
++	if (ret < 0) {
++		dev_err(dev, "request_irq: %d\n", ret);
++		return ret;
++	}
++
++	/*data->devt = MKDEV(240, 0);*/
++	if ((ret = alloc_chrdev_region(&dev->devt, 0, 1, data->type)) < 0) 
++	{
++		dev_err(dev, "alloc_chrdev_region: %d\n", ret);
++		return ret;
++	}
++
++	cdev_init(&data->cdev, &wetter_fops);
++	if ((ret = cdev_add(&data->cdev, dev->devt, 1)) < 0) 
++	{
++		dev_err(dev, "cdev_add: %d\n", ret);
++		unregister_chrdev_region(dev->devt, 1);
++		return ret;
++	}
++
++	rain_class = class_create(THIS_MODULE, "rain");
++	if (IS_ERR(rain_class)) {
++		dev_err(data->dev, "class_create: err=%ld\n",
++				PTR_ERR(rain_class));
++	}
++
++	data->rain_device = device_create(rain_class, NULL,
++			data->dev->devt, NULL, "rain%d",
++			MINOR(data->dev->devt));
++	if (IS_ERR(data->rain_device)) {
++		dev_err(data->dev, "device_create: err=%ld\n",
++				PTR_ERR(data->rain_device));
++	}
++
++	pdev->name = "wetter";
++	//pdev->id = 0;
++
++	platform_set_drvdata(pdev, data);
++
++	dev_info(dev, "registered: %s - V1\n", data->type);
++
++	return 0;
++}
++
++static int wetter_remove(struct platform_device *pdev)
++{
++	struct wetter_data *data = platform_get_drvdata(pdev);
++
++	device_destroy(rain_class, data->dev->devt);
++	class_destroy(rain_class);
++	rain_class = NULL;
++
++	cdev_del(&data->cdev);
++	unregister_chrdev_region(data->dev->devt, 1);
++
++	return 0;
++}
++
++static const struct of_device_id of_wetter_match[] = {
++	{ .compatible = "argent,wetter", },
++	{},
++};
++
++MODULE_DEVICE_TABLE(of, of_wetter_match);
++
++static struct platform_driver wetter_driver = {
++	.probe		= wetter_probe,
++	.remove		= wetter_remove,
++	.driver		= {
++		.name		= "wetter-gpio",
++		.of_match_table	= of_wetter_match,
++	},
++};
++
++module_platform_driver(wetter_driver);
++
++MODULE_AUTHOR("Andreas Klinger <ak@it-klinger.de>");
++MODULE_DESCRIPTION("Impulse von Wetterstation using GPIOs");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:wetter");
+-- 
+2.11.0
+

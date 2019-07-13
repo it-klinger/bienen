@@ -1,0 +1,51 @@
+From 7530ce0ca0156809366748c32aaa2c0c71efff70 Mon Sep 17 00:00:00 2001
+From: Andreas Klinger <ak@it-klinger.de>
+Date: Sun, 9 Jun 2019 17:18:59 +0200
+Subject: [PATCH 3/3] iio: adc: hx711: remove unnecessary returns
+
+Optimize use of return in hx711_set_gain_for_channel().
+
+Signed-off-by: Andreas Klinger <ak@it-klinger.de>
+---
+ drivers/iio/adc/hx711.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/iio/adc/hx711.c b/drivers/iio/adc/hx711.c
+index c8686558429b..20c249f502c0 100644
+--- a/drivers/iio/adc/hx711.c
++++ b/drivers/iio/adc/hx711.c
+@@ -213,7 +213,7 @@ static int hx711_reset(struct hx711_data *hx711_data)
+ 
+ static int hx711_set_gain_for_channel(struct hx711_data *hx711_data, int chan)
+ {
+-	int ret;
++	int ret = 0;
+ 
+ 	if (chan == 0) {
+ 		if (hx711_data->gain_set == 32) {
+@@ -224,8 +224,6 @@ static int hx711_set_gain_for_channel(struct hx711_data *hx711_data, int chan)
+ 				return ret;
+ 
+ 			ret = hx711_wait_for_ready(hx711_data);
+-			if (ret)
+-				return ret;
+ 		}
+ 	} else {
+ 		if (hx711_data->gain_set != 32) {
+@@ -236,12 +234,10 @@ static int hx711_set_gain_for_channel(struct hx711_data *hx711_data, int chan)
+ 				return ret;
+ 
+ 			ret = hx711_wait_for_ready(hx711_data);
+-			if (ret)
+-				return ret;
+ 		}
+ 	}
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static int hx711_reset_read(struct hx711_data *hx711_data, int chan)
+-- 
+2.11.0
+

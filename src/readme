@@ -1,0 +1,7 @@
+Bienenwaage
+
+benötigt wird libconfig.so sowie postgresql-Datenbank
+
+Konfiguration ist in Datei /etc/bienen.cfg
+
+

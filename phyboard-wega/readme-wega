@@ -1,0 +1,52 @@
+Bienen-Waage - V2
+  mit AVIA, HX711 als IIO-Treiber 
+    (4 Stück zu je 2 Kanälen ==> 8 Waagenwerte)
+  mit BOSCH, BME280 als IIO-Treiber
+  mit LAN-Kabel als Anschluss von HX711
+
+I2C-Anschluss ( 2 x )
+Sensor-Kabel   Belegung      WEGA-X71    WEGA-Belegung
+  2 weiss          SCL        Pin 15       X_I2C0_SCL
+  4 schwarz        SDA        Pin 16       X_I2C0_SDA
+  1 braun        +3.3V        Pin 13           VCC3V3
+  3 blau           GND        Pin 14              GND
+
+
+Anschluss von HX711 und UM-Schalter (2 x EIN)
+  an phyBoard-WEGA mit X70:
+Waagen-Anschluss ( 6 x )
+Input-Schalter ( 2 x )
+
+   LAN-Kabel     Belegung      WEGA-X70  WEGA-Belegung
+weiss (von grün)   +5.0V                                 
+weiss (von orange) +5.0V                                 
+weiss (von blau)     GND                                 
+weiss (von braun)    GND                                 
+grün                 SCK        Pin  2   X_LCD_D21 - GPIO0_26  (weight0)
+blau                DOUT        Pin  3   X_LCD_D18 - GPIO1_13  (weight0)
+orange               SCK        Pin  4   X_LCD_D16 - GPIO1_15  (weight1)
+braun               DOUT        Pin  5   X_LCD_D0  - GPIO2_6   (weight1)
+grün                 SCK        Pin  7   X_LCD_D1  - GPIO2_7   (weight2)
+blau                DOUT        Pin  8   X_LCD_D2  - GPIO2_8   (weight2)
+orange               SCK        Pin  9   X_LCD_D3  - GPIO2_9   (weight3)
+braun               DOUT        Pin 10   X_LCD_D4  - GPIO2_10  (weight3)
+grün                 SCK        Pin 12   X_LCD_D22 - GPIO0_23  (weight4)
+blau                DOUT        Pin 13   X_LCD_D19 - GPIO1_12  (weight4)
+orange               SCK        Pin 14   X_LCD_D5  - GPIO2_11  (weight5)
+braun               DOUT        Pin 15   X_LCD_D6  - GPIO2_12  (weight5)
+  Schalter (stop)    EIN        Pin 17   X_LCD_D7  - GPIO2_13  (Tara anpassen)
+  Schalter (pause)   EIN        Pin 18   X_LCD_D8  - GPIO2_14  (Tara bleibt gleich)
+                                Pin 19   X_LCD_D9  - GPIO2_15
+                                Pin 20   X_LCD_D10 - GPIO2_16
+                                Pin 22   X_LCD_D23 - GPIO0_22
+                                Pin 23   X_LCD_D20 - GPIO0_27
+                                Pin 24   X_LCD_D17 - GPIO1_14
+                                Pin 25   X_LCD_D11 - GPIO2_17
+                                Pin 27   X_LCD_D12 - GPIO0_8
+                                Pin 28   X_LCD_D13 - GPIO0_9
+                                Pin 29   X_LCD_D14 - GPIO0_10
+                                Pin 30   X_LCD_D15 - GPIO0_11
+                                Pin 32   X_LCD_PCLK  - GPIO2_24
+                                Pin 34 - X_LCD_HSYNC - GPIO2_23
+                                Pin 35 - X_LCD_VSYNC - GPIO2_22
+

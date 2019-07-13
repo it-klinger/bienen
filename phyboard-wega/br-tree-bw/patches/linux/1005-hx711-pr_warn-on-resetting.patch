@@ -1,0 +1,36 @@
+From 3e4c09c036e8ad838718f18939fff1b174d3ddf6 Mon Sep 17 00:00:00 2001
+From: Andreas Klinger <ak@it-klinger.de>
+Date: Sun, 23 Jun 2019 13:21:30 +0200
+Subject: [PATCH] hx711: pr_warn on resetting
+
+---
+ drivers/iio/adc/hx711.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/iio/adc/hx711.c b/drivers/iio/adc/hx711.c
+index 20c249f502c0..b0222b99497d 100644
+--- a/drivers/iio/adc/hx711.c
++++ b/drivers/iio/adc/hx711.c
+@@ -179,7 +179,8 @@ static int hx711_wait_for_ready(struct hx711_data *hx711_data)
+ 		msleep(10);
+ 	}
+ 	if (val)
+-		return -EIO;
++		return i;
++		// return -EIO;
+ 
+ 	return 0;
+ }
+@@ -198,6 +199,9 @@ static int hx711_reset(struct hx711_data *hx711_data)
+ 		 * there were no problems encountered with a value
+ 		 * of 10 ms or higher
+ 		 */
++
++		pr_warn("hx711_reset: resetting val=%d\n", val);
++
+ 		gpiod_set_value(hx711_data->gpiod_pd_sck, 1);
+ 		msleep(10);
+ 		gpiod_set_value(hx711_data->gpiod_pd_sck, 0);
+-- 
+2.11.0
+

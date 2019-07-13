@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PQBIENEN
+	bool "postgresql-database for bienen"
+	help
+	  This is the database for the bienen project
+

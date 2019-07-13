@@ -1,0 +1,5 @@
+config BR2_PACKAGE_BIENEN
+	bool "bienen"
+	help
+	  This is the bee weighting application for detection swarms,
+	  hungry bees and honey robbery.

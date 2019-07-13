@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+
+case "$1" in
+  start)
+	printf "Starting bienen: "
+	modprobe hx711.ko
+	modprobe bmp280-i2c.ko
+	chmod 666 /dev/gpiochip*
+	chown postgres /daten
+       	su - postgres -c '/opt/bienen/bin/bienen >>/var/log/bienen.log 2>>/var/log/bienen.err' &
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  stop)
+	printf "Stopping bienen: "
+	/usr/bin/killall -9 bienen
+	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	;;
+  restart|reload)
+	"$0" stop
+	"$0" start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+

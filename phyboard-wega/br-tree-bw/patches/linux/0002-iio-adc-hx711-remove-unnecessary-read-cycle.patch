@@ -1,0 +1,78 @@
+From 40ce559690af1ffda95cbac7d694f9f45463285c Mon Sep 17 00:00:00 2001
+From: Andreas Klinger <ak@it-klinger.de>
+Date: Sun, 9 Jun 2019 17:05:23 +0200
+Subject: [PATCH 2/3] iio: adc: hx711: remove unnecessary read cycle
+
+Set gain in hx711_reset() to its default value after a reset cycle. This
+omits one precautionary read cycle, because the read is performed in
+hx711_set_gain_for_channel() anyway if gain has changed.
+
+Check for DOUT low and wait some time if it goes down instead of doing a
+blind reset cycle when DOUT is not down.
+
+Signed-off-by: Andreas Klinger <ak@it-klinger.de>
+Co-authored-by: Uwe Bonnes <bon@elektron.ikp.physik.tu-darmstadt.de>
+Signed-off-by: Uwe Bonnes <bon@elektron.ikp.physik.tu-darmstadt.de>
+---
+ drivers/iio/adc/hx711.c | 23 +++++------------------
+ 1 file changed, 5 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/iio/adc/hx711.c b/drivers/iio/adc/hx711.c
+index 0678964dbd21..c8686558429b 100644
+--- a/drivers/iio/adc/hx711.c
++++ b/drivers/iio/adc/hx711.c
+@@ -23,6 +23,7 @@
+ 
+ /* gain to pulse and scale conversion */
+ #define HX711_GAIN_MAX		3
++#define HX711_RESET_GAIN	128
+ 
+ struct hx711_gain_to_scale {
+ 	int			gain;
+@@ -100,7 +101,6 @@ struct hx711_data {
+ 
+ static int hx711_cycle(struct hx711_data *hx711_data)
+ {
+-	int val;
+ 	unsigned long flags;
+ 
+ 	/*
+@@ -186,8 +186,7 @@ static int hx711_wait_for_ready(struct hx711_data *hx711_data)
+ 
+ static int hx711_reset(struct hx711_data *hx711_data)
+ {
+-	int ret;
+-	int val = gpiod_get_value(hx711_data->gpiod_dout);
++	int val = hx711_wait_for_ready(hx711_data);
+ 
+ 	if (val) {
+ 		/*
+@@ -203,22 +202,10 @@ static int hx711_reset(struct hx711_data *hx711_data)
+ 		msleep(10);
+ 		gpiod_set_value(hx711_data->gpiod_pd_sck, 0);
+ 
+-		ret = hx711_wait_for_ready(hx711_data);
+-		if (ret)
+-			return ret;
+-		/*
+-		 * after a reset the gain is 128 so we do a dummy read
+-		 * to set the gain for the next read
+-		 */
+-		ret = hx711_read(hx711_data);
+-		if (ret < 0)
+-			return ret;
+-
+-		/*
+-		 * after a dummy read we need to wait vor readiness
+-		 * for not mixing gain pulses with the clock
+-		 */
+ 		val = hx711_wait_for_ready(hx711_data);
++
++		/* after a reset the gain is 128 */
++		hx711_data->gain_set = HX711_RESET_GAIN;
+ 	}
+ 
+ 	return val;
+-- 
+2.11.0
+
