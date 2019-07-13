@@ -322,28 +322,6 @@ int init_waagen_btn_tmr(struct bw_stand* stand)
 		free (fname);
 	}
 
-	/*
-	 * ohne Dummy-Lesen kriegt man beim ersten Durchlauf Mondwerte
-	 */
-/*
- * for (j = 0; j < 5; j++) {
-
-		for (i = 0; i < stand->nwaagen; i++) {
-			stand->waage[i]->mass = -1.0;
-			if (bw_read_value(stand->waage[i]->fd, &val) > 0)
-				stand->waage[i]->mass = val;
-		}
-
-		for (i = 0; i < stand->nwaagen; i++) {
-			printf("Masse (%d)        %10.3f g\n", i,
-				(stand->waage[i]->mass - stand->waage[i]->offset) *
-					stand->waage[i]->scale - stand->waage[i]->tara);
-		}
-
-		sleep(1);
-	}
-*/
-
 	ret = bw_init_button(&stand->btn_pause);
 	if (ret < 0)
 		error_at_line(1,errno,__FILE__,__LINE__,"bw_init_button(pause)");
@@ -398,41 +376,14 @@ int read_waagen_daten(struct bw_stand *stand)
 
 	for (i = 0; i < stand->nwaagen; i++) {
 
-		int cnt;
-		double massalt = stand->waage[i]->mass;
-
-		/*
-		 * lese bis Messwert innerhalb von Toleranz
-		 * thr_mass gelesen wird
-		 * --> Eliminierung von Ausreissern welche
-		 *  aufgrund fehlerhafter Umschaltung am
-		 *  Sensor möglich sind
-		 */
-		cnt = 0;
-	//	do {
-			ret = bw_read_value(stand->waage[i]->fd, &val);
-			if (ret < 0) {
-				error_at_line(1,errno,__FILE__,__LINE__,"kein gültiger Meßwert\n");
-				break;
-			}
-
-			if (cnt > 10) {
-				error_at_line(0,errno,__FILE__,__LINE__,"max. Durchlauf erreicht\n");
-				break;
-			}
-
-	//		usleep(200000);
-			cnt++;
-
-	//	} while ((abs(stand->waage[i]->mass - val) > stand->thr_mass) &&
-	//			(cnt > 1));
+		ret = bw_read_value(stand->waage[i]->fd, &val);
+		if (ret < 0) {
+			error_at_line(1,errno,__FILE__,__LINE__,"kein gültiger Meßwert\n");
+			break;
+		}
 
 		if (ret > 0)
 			stand->waage[i]->mass = val;
-	//	else
-	//		continue;
-
-	//	usleep(200000);
 	}
 
 	return 0;
@@ -608,14 +559,12 @@ int write_bme_waagen_daten(struct bw_stand *stand)
 void db_disconnect(PGconn *conn, PGresult *res)
 {
 	fprintf(stderr, "%s\n", PQerrorMessage(conn));    
-//	PQclear(res);
 	PQfinish(conn);    
 }
 
 
 int db_connect(struct bw_stand *stand)
 {
-	// stand->conn = PQconnectdb("user=bw password=bw dbname=bw-grabenreith");
 	stand->conn = PQconnectdb(stand->conn_string);
 	if (PQstatus(stand->conn) == CONNECTION_BAD) {
 		error_at_line(1,errno,__FILE__,__LINE__,
@@ -667,7 +616,6 @@ int db_insert_waage(struct bw_stand *stand)
 		asprintf(&sql, "INSERT INTO gewicht (waa_id, value, ts) VALUES(%d, %9.0f, '%s'::timestamp)", 
 				stand->waage[i]->waa_id, stand->waage[i]->gewicht, stand->waage[i]->ts);
 
-		// printf("sql: %s\n", sql);
 		res = PQexec(stand->conn, sql);
 
 		if (PQresultStatus(res) != PGRES_COMMAND_OK) {
