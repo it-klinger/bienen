@@ -1,7 +1,7 @@
 diff -uprN linux-4.19.1-orig/arch/arm/configs/wega_bw_defconfig linux-4.19.1/arch/arm/configs/wega_bw_defconfig
 --- linux-4.19.1-orig/arch/arm/configs/wega_bw_defconfig	1970-01-01 01:00:00.000000000 +0100
 +++ linux-4.19.1/arch/arm/configs/wega_bw_defconfig	2019-05-19 19:22:30.106886339 +0200
-@@ -0,0 +1,487 @@
+@@ -0,0 +1,488 @@
 +CONFIG_LOCALVERSION="-wega-bw"
 +# CONFIG_SWAP is not set
 +CONFIG_SYSVIPC=y
@@ -489,3 +489,4 @@ diff -uprN linux-4.19.1-orig/arch/arm/configs/wega_bw_defconfig linux-4.19.1/arc
 +CONFIG_SAMPLE_KFIFO=m
 +CONFIG_SAMPLE_CONFIGFS=m
 +CONFIG_SAMPLE_CONNECTOR=m
++CONFIG_WETTER=m
